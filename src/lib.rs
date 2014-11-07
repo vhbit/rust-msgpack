@@ -457,8 +457,10 @@ impl<'a> serialize::Decoder<IoError> for Decoder<'a> {
             self.read_enum_variant_arg(idx, f)
         }
 
-    fn read_tuple<T>(&mut self, f: |&mut Decoder<'a>, uint| -> IoResult<T>) -> IoResult<T> {
-        self.read_seq(f)
+    fn read_tuple<T>(&mut self, _len: uint, f: |&mut Decoder<'a>| -> IoResult<T>) -> IoResult<T> {
+        self.read_seq(|decoder: &mut Decoder<'a>, _len: uint| {
+            f(decoder)
+        })
     }
 
     fn read_tuple_arg<T>(&mut self, idx: uint, f: |&mut Decoder<'a>| -> IoResult<T>) -> IoResult<T> {
@@ -467,9 +469,10 @@ impl<'a> serialize::Decoder<IoError> for Decoder<'a> {
 
     fn read_tuple_struct<T>(&mut self,
                             _name: &str,
-                            f: |&mut Decoder<'a>, uint| -> IoResult<T>)
+                            len: uint,
+                            f: |&mut Decoder<'a>| -> IoResult<T>)
         -> IoResult<T> {
-            self.read_tuple(f)
+            self.read_tuple(len, f)
         }
 
     fn read_tuple_struct_arg<T>(&mut self,
@@ -784,7 +787,7 @@ pub fn from_msgpack<'a, T: Decodable<Decoder<'a>, IoError>>(bytes: &'a [u8]) -> 
 
 #[cfg(test)]
 mod test {
-    use std::collections::hashmap::HashMap;
+    use std::collections::HashMap;
     use super::{Encoder, from_msgpack};
     use serialize::Encodable;
 
@@ -874,5 +877,13 @@ mod test {
         assert_msgpack_circular!(String::from_char(32, 'a'));
         assert_msgpack_circular!(String::from_char(256, 'a'));
         assert_msgpack_circular!(String::from_char(0x10000, 'a'));
+    }
+
+    #[test]
+    fn test_circular_tuple() {
+        assert_msgpack_circular!((3u, 4u));
+        assert_msgpack_circular!((3u, "test".to_string()));
+        assert_msgpack_circular!(("test".to_string(), 3u));
+        assert_msgpack_circular!((vec![0u, 1, 2], "test".to_string()));
     }
 }
