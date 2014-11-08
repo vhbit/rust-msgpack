@@ -457,9 +457,13 @@ impl<'a> serialize::Decoder<IoError> for Decoder<'a> {
             self.read_enum_variant_arg(idx, f)
         }
 
-    fn read_tuple<T>(&mut self, _len: uint, f: |&mut Decoder<'a>| -> IoResult<T>) -> IoResult<T> {
-        self.read_seq(|decoder: &mut Decoder<'a>, _len: uint| {
-            f(decoder)
+    fn read_tuple<T>(&mut self, tuple_len: uint, f: |&mut Decoder<'a>| -> IoResult<T>) -> IoResult<T> {
+        self.read_seq(|d, len| {
+            if len == tuple_len {
+                f(d)
+            } else {
+                Err(d.error("received incorrect tuple length"))
+            }
         })
     }
 
