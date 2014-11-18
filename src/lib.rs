@@ -1,7 +1,7 @@
 #![comment = "msgpack.org implementation for Rust"]
 #![license = "MIT/ASL2"]
 #![crate_type = "lib"]
-#![feature(struct_variant, macro_rules, globs)]
+#![feature(macro_rules, globs)]
 #![allow(unused_must_use, dead_code)]
 
 extern crate serialize;
@@ -10,8 +10,10 @@ use std::io;
 use std::io::{BufReader, MemWriter, IoResult, IoError, InvalidInput};
 use std::str::from_utf8;
 use std::mem;
+use std::str::Str;
 
 use serialize::{Encodable, Decodable};
+use Value::{Nil, Boolean, Integer, Unsigned, Float, Double, Array, Map, Binary, Extended};
 
 mod rpc;
 
@@ -29,6 +31,7 @@ pub enum Value {
     Binary(Vec<u8>),
     Extended(i8, Vec<u8>)
 }
+
 
 #[inline(always)]
 fn read_float(rd: &mut io::Reader) -> IoResult<f32> {
@@ -197,18 +200,18 @@ impl<'a, R: Reader> Decoder<R> {
             0xca         => read_float(&mut self.rd).map(|i| Float(i)),
             0xcb         => read_double(&mut self.rd).map(|i| Double(i)),
 
-            0xa0 ... 0xbf => self._read_raw((c as uint) & 0x1F).map(|i| Str(i)),
+            0xa0 ... 0xbf => self._read_raw((c as uint) & 0x1F).map(|i| Value::Str(i)),
             0xd9         => {
                 let l = try!(self.rd.read_u8()) as uint;
-                self._read_raw(l).map(|i| Str(i))
+                self._read_raw(l).map(|i| Value::Str(i))
             }
             0xda         => {
                 let l = try!(self.rd.read_be_u16()) as uint;
-                self._read_raw(l).map(|i| Str(i))
+                self._read_raw(l).map(|i| Value::Str(i))
             }
             0xdb         => {
                 let l = try!(self.rd.read_be_u32()) as uint;
-                self._read_raw(l).map(|i| Str(i))
+                self._read_raw(l).map(|i| Value::Str(i))
             }
 
             0xc4         => {
@@ -785,7 +788,7 @@ impl<'a> serialize::Encodable<Encoder<'a>, IoError> for Value {
                 }
                 Ok(())
             }
-            Str(ref str) => s.emit_str(from_utf8(str.as_slice()).unwrap()), // XXX
+            Value::Str(ref str) => s.emit_str(from_utf8(str.as_slice()).unwrap()), // XXX
             Binary(_) => panic!(), // XXX
             Extended(_, _) => panic!() // XXX
         }
@@ -905,7 +908,7 @@ mod test {
 
     #[test]
     fn test_circular_enum() {
-        assert_msgpack_circular!(Dog);
-        assert_msgpack_circular!(Frog("Henry".to_string(), 349));
+        assert_msgpack_circular!(Animal::Dog);
+        assert_msgpack_circular!(Animal::Frog("Henry".to_string(), 349));
     }
 }
